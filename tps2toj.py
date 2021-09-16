@@ -79,7 +79,7 @@ with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
 # http / statements
 makedirs(outputpath, 'http')
 
-statement_path = os.path.join(inputpath, 'statement', 'problem.pdf')
+statement_path = os.path.join(inputpath, 'statement', 'index.pdf')
 if not os.path.exists(statement_path):
     logging.info('No statements')
     statement = None

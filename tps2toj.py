@@ -19,7 +19,7 @@ outputpath = args.outputpath
 logging.basicConfig(level=args.loglevel, format='%(asctime)s %(levelname)s %(message)s')
 
 
-with open(os.path.join(inputpath, 'problem.json')) as f:
+with open(os.path.join(inputpath, 'problem.json'), encoding='utf-8') as f:
     data = json.load(f)
 
 makedirs(outputpath)
@@ -100,3 +100,4 @@ p = subprocess.Popen([
     'res',
     'conf.json'
 ])
+p.wait()

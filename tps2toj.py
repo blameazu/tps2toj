@@ -2,101 +2,114 @@ import argparse
 import json
 import logging
 import os
-import re
-import subprocess
+import sys
+import lzma
+import tarfile
 from function import makedirs, copyfile
 
+def progress_bar(ratio, width=40):
+    filled = int(width * ratio)
+    bar = '#' * filled + '-' * (width - filled)
+    sys.stdout.write(f"\rCompression Progess: [{bar}] {ratio*100:5.1f}%")
+    sys.stdout.flush()
 
-parser = argparse.ArgumentParser(description='cms2toj')
-parser.add_argument('inputpath', type=str, help='輸入資料夾')
-parser.add_argument('outputpath', type=str, help='輸出的資料夾')
-parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.DEBUG)
-parser.set_defaults(loglevel=logging.INFO)
-args = parser.parse_args()
-inputpath = args.inputpath
-outputpath = args.outputpath
+def make_tar_xz_with_progress(src_dir, dest_path):
+    members = []
+    base_dir = os.path.dirname(src_dir)
+    for root, dirs, files in os.walk(src_dir):
+        for fn in files:
+            full = os.path.join(root, fn)
+            arcname = os.path.relpath(full, base_dir)
+            members.append((full, arcname))
 
-logging.basicConfig(level=args.loglevel, format='%(asctime)s %(levelname)s %(message)s')
+    total_bytes = sum(os.path.getsize(full) for full, _ in members)
+    processed = 0
+
+    with lzma.open(dest_path, "wb") as xz_out:
+        with tarfile.open(mode="w|", fileobj=xz_out) as tar:
+            for full, arcname in members:
+                tarinfo = tar.gettarinfo(full, arcname)
+                with open(full, "rb") as f:
+                    tar.addfile(tarinfo, fileobj=f)
+                processed += os.path.getsize(full)
+                progress_bar(processed / total_bytes)
+    sys.stdout.write("\n")
+    sys.stdout.flush()
 
 
-with open(os.path.join(inputpath, 'problem.json')) as f:
-    data = json.load(f)
+def main():
+    parser = argparse.ArgumentParser(description='cms2toj')
+    parser.add_argument('inputpath', type=str, help='input directory')
+    parser.add_argument('outputpath', type=str, help='output directory')
+    parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.DEBUG)
+    parser.set_defaults(loglevel=logging.INFO)
+    args = parser.parse_args()
+    inputpath = args.inputpath
+    outputpath = args.outputpath
 
-makedirs(outputpath)
+    logging.basicConfig(level=args.loglevel, format='%(asctime)s %(levelname)s %(message)s')
 
-# conf
-conf = {
-    'timelimit': 0,
-    'memlimit': 0,
-    'compile': 'g++',
-    'score': 'rate',
-    'check': 'diff',
-    'test': [],
-    'metadata': {},
-}
-conf['timelimit'] = int(data['time_limit'] * 1000)
-conf['memlimit'] = int(data['memory_limit'] * 1024)
+    with open(os.path.join(inputpath, 'problem.json'), encoding='utf-8') as f:
+        data = json.load(f)
 
-# res/testdata / testcases
-makedirs(outputpath, 'res/testdata')
+    makedirs(outputpath)
 
-datacasemap = {}
-offset = 1
+    conf = {
+        'timelimit': int(data['time_limit'] * 1000),
+        'memlimit': int(data['memory_limit'] * 1024),
+        'compile': 'g++',
+        'score': 'rate',
+        'check': 'diff',
+        'test': [],
+        'metadata': {},
+    }
 
-subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
-mapping_src = os.path.join(inputpath, 'tests', 'mapping')
-mapping_data = {}
-with open(subtasks_json_src, 'rt', encoding='utf-8') as json_file:
-    subtasks_data = json.load(json_file)
-for subtask in subtasks_data['subtasks']:
-    mapping_data[subtask] = []
-with open(mapping_src, 'rt', encoding='utf-8') as mapping_file:
-    for row in mapping_file:
-        row = row.strip().split(' ')
-        datacasemap[row[1]] = offset
-        if len(row) == 2:
-            mapping_data[row[0]].append(offset)
-            copyfile(
-                (inputpath, 'tests', '{}.in'.format(row[1])),
-                (outputpath, 'res/testdata', '{}.in'.format(offset))
-            )
-            copyfile(
-                (inputpath, 'tests', '{}.out'.format(row[1])),
-                (outputpath, 'res/testdata', '{}.out'.format(offset))
-            )
-            offset += 1
+    # res/testdata/testcases
+    makedirs(outputpath, 'res/testdata')
+    datacasemap = {}
+    offset = 1
 
-for subtask in mapping_data:
-    conf['test'].append({
-        'data': mapping_data[subtask],
-        'weight': subtasks_data['subtasks'][subtask]['score'],
-    })
+    subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
+    mapping_src = os.path.join(inputpath, 'tests', 'mapping')
+    mapping_data = {}
+    with open(subtasks_json_src, 'rt', encoding='utf-8') as json_file:
+        subtasks_data = json.load(json_file)
+    for sub in subtasks_data['subtasks']:
+        mapping_data[sub] = []
+    with open(mapping_src, 'rt', encoding='utf-8') as mapping_file:
+        for row in mapping_file:
+            parts = row.strip().split()
+            datacasemap[parts[1]] = offset
+            if len(parts) == 2:
+                mapping_data[parts[0]].append(offset)
+                copyfile((inputpath, 'tests', f"{parts[1]}.in"),
+                        (outputpath, 'res/testdata', f"{offset}.in"))
+                copyfile((inputpath, 'tests', f"{parts[1]}.out"),
+                        (outputpath, 'res/testdata', f"{offset}.out"))
+                offset += 1
 
-logging.info('Creating config file')
-with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
-    json.dump(conf, conffile, indent=4)
+    for sub, cases in mapping_data.items():
+        conf['test'].append({'data': cases, 
+                             'weight': subtasks_data['subtasks'][sub]['score']})
 
-# http / statements
-makedirs(outputpath, 'http')
+    logging.info('Creating config file')
+    with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
+        json.dump(conf, conffile, indent=4)
 
-statement_path = os.path.join(inputpath, 'statement', 'index.pdf')
-if not os.path.exists(statement_path):
-    logging.info('No statements')
-    statement = None
-else:
-    logging.info('Copying statements')
-    copyfile(
-        (statement_path,),
-        (outputpath, 'http', 'cont.pdf')
-    )
+    # http/statement
+    makedirs(outputpath, 'http')
+    statement_path = os.path.join(inputpath, 'statement', 'index.pdf')
+    if os.path.exists(statement_path):
+        logging.info('Copying statements')
+        copyfile((statement_path,), 
+                 (outputpath, 'http', 'cont.pdf'))
 
-p = subprocess.Popen([
-    'tar',
-    '-C',
-    outputpath,
-    '-cJf',
-    os.path.join(os.path.dirname(outputpath), '{}.tar.xz'.format(os.path.basename(outputpath))),
-    'http',
-    'res',
-    'conf.json'
-])
+    dirname = os.path.dirname(outputpath)
+    basename = os.path.basename(outputpath)
+    dest = os.path.join(dirname, f"{basename}.tar.xz")
+    logging.info('Start compressing with progress...')
+    make_tar_xz_with_progress(outputpath, dest)
+
+
+if __name__ == '__main__':
+    main()

@@ -15,7 +15,7 @@ def progress_bar(ratio, width=40):
 
 def make_tar_xz_with_progress(src_dir, dest_path):
     members = []
-    base_dir = os.path.dirname(src_dir)
+    base_dir = src_dir
     for root, dirs, files in os.walk(src_dir):
         for fn in files:
             full = os.path.join(root, fn)

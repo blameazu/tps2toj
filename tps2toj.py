@@ -53,19 +53,30 @@ def main():
         data = json.load(f)
 
     makedirs(outputpath)
-
+    
     conf = {
         'timelimit': int(data['time_limit'] * 1000),
         'memlimit': int(data['memory_limit'] * 1024),
         'compile': 'g++',
         'score': 'rate',
-        'check': 'diff',
+        'check': 'cms' if data['has_checker'] == True else 'diff',
         'test': [],
         'metadata': {},
     }
+    
+    # res/checker
+    if data['has_chcker']:
+        makedirs(outputpath, 'res/checker')
+        copyfile((inputpath, 'checker', "checker.cpp"),
+                            (outputpath, 'res/checker', "checker.cpp"))
+        copyfile((inputpath, 'checker', "testlib.h"),
+                            (outputpath, 'res/checker', "testlib.h"))
+        copyfile((inputpath, 'checker', "Makefile"),
+                            (outputpath, 'res/checker', "Makefile"))
 
     # res/testdata/testcases
     makedirs(outputpath, 'res/testdata')
+    
     datacasemap = {}
     offset = 1
 
@@ -109,7 +120,6 @@ def main():
     dest = os.path.join(dirname, f"{basename}.tar.xz")
     logging.info('Start compressing with progress...')
     make_tar_xz_with_progress(outputpath, dest)
-
 
 if __name__ == '__main__':
     main()

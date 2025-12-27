@@ -5,6 +5,9 @@ import os
 import sys
 import lzma
 import tarfile
+import sys
+import lzma
+import tarfile
 from function import makedirs, copyfile
 
 def progress_bar(ratio, width=40):
@@ -15,7 +18,7 @@ def progress_bar(ratio, width=40):
 
 def make_tar_xz_with_progress(src_dir, dest_path):
     members = []
-    base_dir = os.path.dirname(src_dir)
+    base_dir = src_dir
     for root, dirs, files in os.walk(src_dir):
         for fn in files:
             full = os.path.join(root, fn)
@@ -52,23 +55,62 @@ def main():
     with open(os.path.join(inputpath, 'problem.json'), encoding='utf-8') as f:
         data = json.load(f)
 
+    if os.path.exists(outputpath):
+        import shutil
+        shutil.rmtree(outputpath)
+        
+    dirname = os.path.dirname(outputpath)
+    basename = os.path.basename(outputpath)
+    dest = os.path.join(dirname, f"{basename}.tar.xz")
+    if os.path.exists(dest):
+        os.remove(dest)
+        
     makedirs(outputpath)
-
+    
     conf = {
         'timelimit': int(data['time_limit'] * 1000),
         'memlimit': int(data['memory_limit'] * 1024),
         'compile': 'g++',
         'score': 'rate',
-        'check': 'diff',
+        'check': 'cms' if data['has_checker'] == True else 'diff',
         'test': [],
         'metadata': {},
     }
+    
+    # res/checker
+    if data['has_checker']:
+        makedirs(outputpath, 'res/checker')
+        copyfile((inputpath, 'checker', "checker.cpp"),
+                            (outputpath, 'res/checker', "checker.cpp"))
+        copyfile((inputpath, 'checker', "testlib.h"),
+                            (outputpath, 'res/checker', "testlib.h"))
+        copyfile((inputpath, 'checker', "Makefile"),
+                            (outputpath, 'res/checker', "Makefile"))
 
     # res/testdata/testcases
     makedirs(outputpath, 'res/testdata')
+    
     datacasemap = {}
     offset = 1
 
+    subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
+    mapping_src = os.path.join(inputpath, 'tests', 'mapping')
+    mapping_data = {}
+    with open(subtasks_json_src, 'rt', encoding='utf-8') as json_file:
+        subtasks_data = json.load(json_file)
+    for sub in subtasks_data['subtasks']:
+        mapping_data[sub] = []
+    with open(mapping_src, 'rt', encoding='utf-8') as mapping_file:
+        for row in mapping_file:
+            parts = row.strip().split()
+            datacasemap[parts[1]] = offset
+            if len(parts) == 2:
+                mapping_data[parts[0]].append(offset)
+                copyfile((inputpath, 'tests', f"{parts[1]}.in"),
+                        (outputpath, 'res/testdata', f"{offset}.in"))
+                copyfile((inputpath, 'tests', f"{parts[1]}.out"),
+                        (outputpath, 'res/testdata', f"{offset}.out"))
+                offset += 1
     subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
     mapping_src = os.path.join(inputpath, 'tests', 'mapping')
     mapping_data = {}
@@ -91,7 +133,13 @@ def main():
     for sub, cases in mapping_data.items():
         conf['test'].append({'data': cases, 
                              'weight': subtasks_data['subtasks'][sub]['score']})
+    for sub, cases in mapping_data.items():
+        conf['test'].append({'data': cases, 
+                             'weight': subtasks_data['subtasks'][sub]['score']})
 
+    logging.info('Creating config file')
+    with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
+        json.dump(conf, conffile, indent=4)
     logging.info('Creating config file')
     with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
         json.dump(conf, conffile, indent=4)
@@ -104,12 +152,11 @@ def main():
         copyfile((statement_path,), 
                  (outputpath, 'http', 'cont.pdf'))
 
-    dirname = os.path.dirname(outputpath)
-    basename = os.path.basename(outputpath)
-    dest = os.path.join(dirname, f"{basename}.tar.xz")
+    # dirname = os.path.dirname(outputpath)
+    # basename = os.path.basename(outputpath)
+    # dest = os.path.join(dirname, f"{basename}.tar.xz")
     logging.info('Start compressing with progress...')
     make_tar_xz_with_progress(outputpath, dest)
-
 
 if __name__ == '__main__':
     main()

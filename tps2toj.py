@@ -111,35 +111,11 @@ def main():
                 copyfile((inputpath, 'tests', f"{parts[1]}.out"),
                         (outputpath, 'res/testdata', f"{offset}.out"))
                 offset += 1
-    subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
-    mapping_src = os.path.join(inputpath, 'tests', 'mapping')
-    mapping_data = {}
-    with open(subtasks_json_src, 'rt', encoding='utf-8') as json_file:
-        subtasks_data = json.load(json_file)
-    for sub in subtasks_data['subtasks']:
-        mapping_data[sub] = []
-    with open(mapping_src, 'rt', encoding='utf-8') as mapping_file:
-        for row in mapping_file:
-            parts = row.strip().split()
-            datacasemap[parts[1]] = offset
-            if len(parts) == 2:
-                mapping_data[parts[0]].append(offset)
-                copyfile((inputpath, 'tests', f"{parts[1]}.in"),
-                        (outputpath, 'res/testdata', f"{offset}.in"))
-                copyfile((inputpath, 'tests', f"{parts[1]}.out"),
-                        (outputpath, 'res/testdata', f"{offset}.out"))
-                offset += 1
 
     for sub, cases in mapping_data.items():
         conf['test'].append({'data': cases, 
                              'weight': subtasks_data['subtasks'][sub]['score']})
-    for sub, cases in mapping_data.items():
-        conf['test'].append({'data': cases, 
-                             'weight': subtasks_data['subtasks'][sub]['score']})
 
-    logging.info('Creating config file')
-    with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
-        json.dump(conf, conffile, indent=4)
     logging.info('Creating config file')
     with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
         json.dump(conf, conffile, indent=4)

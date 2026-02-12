@@ -129,7 +129,7 @@ def main():
                              'weight': subtasks_data['subtasks'][sub]['score']})
 
     logging.info('Creating config file')
-    with open(os.path.join(work_dir, 'conf.json', encoding='utf-8'), 'w') as conffile:
+    with open(os.path.join(work_dir, 'conf.json'), 'w', encoding='utf-8') as conffile:
         json.dump(conf, conffile, indent=4)
 
     # http/statement

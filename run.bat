@@ -57,7 +57,7 @@ for %%L in (A B C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (
     echo python tps2toj.py "%input%\p%%L" "%output%\p%%L"
     python tps2toj.py "%input%\p%%L" "%output%\p%%L"
     if ERRORLEVEL 1 (
-      echo [Warning] p%%L returned non-zero exit code: %ERRORLEVEL%
+      echo [Warning] p%%L returned non-zero exit code: !ERRORLEVEL!
     )
   )
 )

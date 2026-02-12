@@ -14,7 +14,7 @@ from function import makedirs, copyfile, copyfolder
 def progress_bar(ratio, width=40):
     filled = int(width * ratio)
     bar = '#' * filled + '-' * (width - filled)
-    sys.stdout.write(f"\rCompression Progess: [{bar}] {ratio*100:5.1f}%")
+    sys.stdout.write(f"\rCompression Progress: [{bar}] {ratio*100:5.1f}%")
     sys.stdout.flush()
 
 def make_tar_xz_with_progress(src_dir, dest_path):
@@ -36,7 +36,8 @@ def make_tar_xz_with_progress(src_dir, dest_path):
                 with open(full, "rb") as f:
                     tar.addfile(tarinfo, fileobj=f)
                 processed += os.path.getsize(full)
-                progress_bar(processed / total_bytes)
+                if total_bytes > 0:
+                    progress_bar(processed / total_bytes)
     sys.stdout.write("\n")
     sys.stdout.flush()
 
@@ -103,7 +104,6 @@ def main():
     logging.info('Copying testcases')
     makedirs(work_dir, 'res/testdata')
     
-    datacasemap = {}
     offset = 1
 
     subtasks_json_src = os.path.join(inputpath, 'subtasks.json')
@@ -116,7 +116,6 @@ def main():
     with open(mapping_src, 'rt', encoding='utf-8') as mapping_file:
         for row in mapping_file:
             parts = row.strip().split()
-            datacasemap[parts[1]] = offset
             if len(parts) == 2:
                 mapping_data[parts[0]].append(offset)
                 copyfile((inputpath, 'tests', f"{parts[1]}.in"),
@@ -130,7 +129,7 @@ def main():
                              'weight': subtasks_data['subtasks'][sub]['score']})
 
     logging.info('Creating config file')
-    with open(os.path.join(work_dir, 'conf.json'), 'w') as conffile:
+    with open(os.path.join(work_dir, 'conf.json', encoding='utf-8'), 'w') as conffile:
         json.dump(conf, conffile, indent=4)
 
     # http/statement

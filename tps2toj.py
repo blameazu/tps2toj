@@ -145,14 +145,16 @@ def main():
                  (work_dir, 'http', 'cont.pdf'))
 
     logging.info('Start compressing with progress...')
-    make_tar_xz_with_progress(work_dir, dest)
+    try:
+        make_tar_xz_with_progress(work_dir, dest)
 
-    if args.is_keep_progressing_directory:
-        logging.info('Preserving working directory -> %s', final_output_dir)
-        shutil.move(work_dir, final_output_dir)
-    else:
-        logging.info('Cleaning working directory')
-        shutil.rmtree(work_dir, ignore_errors=True)
+        if args.is_keep_progressing_directory:
+            logging.info('Preserving working directory -> %s', final_output_dir)
+            shutil.move(work_dir, final_output_dir)
+    finally:
+        if not args.is_keep_progressing_directory and os.path.isdir(work_dir):
+            logging.info('Cleaning working directory')
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 if __name__ == '__main__':
     main()

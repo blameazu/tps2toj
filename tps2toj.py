@@ -124,6 +124,10 @@ def main():
                     (work_dir, 'res/testdata', f"{offset}.out"))
                 offset += 1
 
+    # Ensure that at least one testcase was successfully processed
+    if not any(cases for cases in mapping_data.values()):
+        logging.error('No valid testcases found in mapping file: %s', mapping_src)
+        sys.exit(1)
     for sub, cases in mapping_data.items():
         conf['test'].append({'data': cases, 
                              'weight': subtasks_data['subtasks'][sub]['score']})

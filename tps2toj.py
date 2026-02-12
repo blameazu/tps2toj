@@ -43,7 +43,7 @@ def make_tar_xz_with_progress(src_dir, dest_path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='cms2toj')
+    parser = argparse.ArgumentParser(description='tps2toj')
     parser.add_argument('inputpath', type=str, help='input directory')
     parser.add_argument('outputpath', type=str, help='output directory')
     parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.DEBUG)

@@ -85,8 +85,11 @@ def main():
     }
     
     # res/validator
-    makedirs(work_dir, 'res/validator')
-    copyfolder((inputpath, 'validator'), (work_dir, 'res/validator'))
+    validator_src = os.path.join(inputpath, 'validator')
+    if os.path.isdir(validator_src):
+        logging.info('Copying validator')
+        makedirs(work_dir, 'res/validator')
+        copyfolder((inputpath, 'validator'), (work_dir, 'res/validator'))
     
     # res/checker
     if data['has_checker']:

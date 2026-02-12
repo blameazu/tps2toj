@@ -137,6 +137,13 @@ def main():
                 copyfile((inputpath, 'tests', f"{parts[1]}.out"),
                     (work_dir, 'res/testdata', f"{offset}.out"))
                 offset += 1
+            else:
+                # Lines that do not contain exactly two whitespace-separated parts
+                # are skipped (e.g., blank lines or comments in the mapping file).
+                logging.debug(
+                    "Skipping invalid or non-mapping line in tests/mapping: %r",
+                    row.strip()
+                )
 
     # Ensure that at least one testcase was successfully processed
     if not any(cases for cases in mapping_data.values()):

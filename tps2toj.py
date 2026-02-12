@@ -70,9 +70,9 @@ def main():
     conf = {
         'timelimit': int(data['time_limit'] * 1000),
         'memlimit': int(data['memory_limit'] * 1024),
-        'compile': 'g++',
         'score': 'rate',
-        'check': 'cms' if data['has_checker'] == True else 'diff',
+        'check': 'cms' if data['has_checker'] else 'diff',
+        'has_grader': data['has_grader'],
         'test': [],
         'metadata': {},
     }
@@ -86,6 +86,14 @@ def main():
                             (outputpath, 'res/checker', "testlib.h"))
         copyfile((inputpath, 'checker', "Makefile"),
                             (outputpath, 'res/checker', "Makefile"))
+        
+    # res/grader
+    if data['has_grader']:
+        makedirs(outputpath, 'res/grader/cpp')
+        copyfile((inputpath, 'grader/cpp', "grader.cpp"),
+                            (outputpath, 'res/grader/cpp', "grader.cpp"))
+        copyfile((inputpath, 'grader/cpp', f"{data['name']}.h"),
+                            (outputpath, 'res/grader/cpp', f"{data['name']}.h"))
 
     # res/testdata/testcases
     makedirs(outputpath, 'res/testdata')
@@ -128,9 +136,6 @@ def main():
         copyfile((statement_path,), 
                  (outputpath, 'http', 'cont.pdf'))
 
-    # dirname = os.path.dirname(outputpath)
-    # basename = os.path.basename(outputpath)
-    # dest = os.path.join(dirname, f"{basename}.tar.xz")
     logging.info('Start compressing with progress...')
     make_tar_xz_with_progress(outputpath, dest)
 

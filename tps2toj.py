@@ -55,8 +55,19 @@ def main():
 
     logging.basicConfig(level=args.loglevel, format='%(asctime)s %(levelname)s %(message)s')
 
-    with open(os.path.join(inputpath, 'problem.json'), encoding='utf-8') as f:
-        data = json.load(f)
+    problem_json_path = os.path.join(inputpath, 'problem.json')
+    try:
+        with open(problem_json_path, encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        logging.error("problem.json not found at '%s'", problem_json_path)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logging.error("Invalid JSON in problem.json at '%s': %s", problem_json_path, e)
+        sys.exit(1)
+    except OSError as e:
+        logging.error("Failed to open problem.json at '%s': %s", problem_json_path, e)
+        sys.exit(1)
     
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     dirname = os.path.dirname(outputpath) or '.'

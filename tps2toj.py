@@ -5,11 +5,12 @@ import os
 import sys
 import lzma
 import tarfile
-import sys
-import lzma
-import tarfile
-from function import makedirs, copyfile
+import tempfile
+import shutil
+from datetime import datetime
+from function import makedirs, copyfile, copyfolder
 
+# progress bar
 def progress_bar(ratio, width=40):
     filled = int(width * ratio)
     bar = '#' * filled + '-' * (width - filled)
@@ -45,27 +46,32 @@ def main():
     parser.add_argument('inputpath', type=str, help='input directory')
     parser.add_argument('outputpath', type=str, help='output directory')
     parser.add_argument('-d', '--debug', action='store_const', dest='loglevel', const=logging.DEBUG)
+    parser.add_argument('-k', '--keep-progressing-directory', action='store_true', dest='is_keep_progressing_directory', help='保留過程產出的資料夾')
     parser.set_defaults(loglevel=logging.INFO)
     args = parser.parse_args()
     inputpath = args.inputpath
-    outputpath = args.outputpath
+    outputpath = os.path.abspath(args.outputpath)
 
     logging.basicConfig(level=args.loglevel, format='%(asctime)s %(levelname)s %(message)s')
 
     with open(os.path.join(inputpath, 'problem.json'), encoding='utf-8') as f:
         data = json.load(f)
-
-    if os.path.exists(outputpath):
-        import shutil
-        shutil.rmtree(outputpath)
-        
-    dirname = os.path.dirname(outputpath)
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    dirname = os.path.dirname(outputpath) or '.'
     basename = os.path.basename(outputpath)
-    dest = os.path.join(dirname, f"{basename}.tar.xz")
+    stamped_basename = f"{basename}_{timestamp}"
+    dest = os.path.join(dirname, f"{stamped_basename}.tar.xz")
+    final_output_dir = os.path.join(dirname, stamped_basename)
+    work_dir = tempfile.mkdtemp(prefix=f"{stamped_basename}_")
+
     if os.path.exists(dest):
         os.remove(dest)
-        
-    makedirs(outputpath)
+    if args.is_keep_progressing_directory and os.path.exists(final_output_dir):
+        shutil.rmtree(final_output_dir)
+    
+    logging.info('Working directory: %s', work_dir)
+    makedirs(work_dir)
     
     conf = {
         'timelimit': int(data['time_limit'] * 1000),
@@ -74,29 +80,28 @@ def main():
         'check': 'cms' if data['has_checker'] else 'diff',
         'has_grader': data['has_grader'],
         'test': [],
-        'metadata': {},
+        'metadata': [],
     }
+    
+    # res/validator
+    makedirs(work_dir, 'res/validator')
+    copyfolder((inputpath, 'validator'), (work_dir, 'res/validator'))
     
     # res/checker
     if data['has_checker']:
-        makedirs(outputpath, 'res/checker')
-        copyfile((inputpath, 'checker', "checker.cpp"),
-                            (outputpath, 'res/checker', "checker.cpp"))
-        copyfile((inputpath, 'checker', "testlib.h"),
-                            (outputpath, 'res/checker', "testlib.h"))
-        copyfile((inputpath, 'checker', "Makefile"),
-                            (outputpath, 'res/checker', "Makefile"))
+        logging.info('Copying checker')
+        makedirs(work_dir, 'res/checker')
+        copyfolder((inputpath, 'checker'), (work_dir, 'res/checker'))
         
     # res/grader
     if data['has_grader']:
-        makedirs(outputpath, 'res/grader/cpp')
-        copyfile((inputpath, 'grader/cpp', "grader.cpp"),
-                            (outputpath, 'res/grader/cpp', "grader.cpp"))
-        copyfile((inputpath, 'grader/cpp', f"{data['name']}.h"),
-                            (outputpath, 'res/grader/cpp', f"{data['name']}.h"))
+        logging.info('Copying grader')
+        makedirs(work_dir, 'res/grader')
+        copyfolder((inputpath, 'grader'), (work_dir, 'res/grader'))
 
     # res/testdata/testcases
-    makedirs(outputpath, 'res/testdata')
+    logging.info('Copying testcases')
+    makedirs(work_dir, 'res/testdata')
     
     datacasemap = {}
     offset = 1
@@ -115,9 +120,9 @@ def main():
             if len(parts) == 2:
                 mapping_data[parts[0]].append(offset)
                 copyfile((inputpath, 'tests', f"{parts[1]}.in"),
-                        (outputpath, 'res/testdata', f"{offset}.in"))
+                    (work_dir, 'res/testdata', f"{offset}.in"))
                 copyfile((inputpath, 'tests', f"{parts[1]}.out"),
-                        (outputpath, 'res/testdata', f"{offset}.out"))
+                    (work_dir, 'res/testdata', f"{offset}.out"))
                 offset += 1
 
     for sub, cases in mapping_data.items():
@@ -125,19 +130,26 @@ def main():
                              'weight': subtasks_data['subtasks'][sub]['score']})
 
     logging.info('Creating config file')
-    with open(os.path.join(outputpath, 'conf.json'), 'w') as conffile:
+    with open(os.path.join(work_dir, 'conf.json'), 'w') as conffile:
         json.dump(conf, conffile, indent=4)
 
     # http/statement
-    makedirs(outputpath, 'http')
+    makedirs(work_dir, 'http')
     statement_path = os.path.join(inputpath, 'statement', 'index.pdf')
     if os.path.exists(statement_path):
         logging.info('Copying statements')
         copyfile((statement_path,), 
-                 (outputpath, 'http', 'cont.pdf'))
+                 (work_dir, 'http', 'cont.pdf'))
 
     logging.info('Start compressing with progress...')
-    make_tar_xz_with_progress(outputpath, dest)
+    make_tar_xz_with_progress(work_dir, dest)
+
+    if args.is_keep_progressing_directory:
+        logging.info('Preserving working directory -> %s', final_output_dir)
+        shutil.move(work_dir, final_output_dir)
+    else:
+        logging.info('Cleaning working directory')
+        shutil.rmtree(work_dir, ignore_errors=True)
 
 if __name__ == '__main__':
     main()
